@@ -1,43 +1,59 @@
-open Protocol_conv_xmlm
-
 type range = {
-  start   : int; [@key "begin"]
-  finish  : int; [@key "end"]
-} [@@deriving protocol ~driver:(module Xmlm)]
+  start   : int;
+  finish  : int;
+}
+[@@deriving show]
 
 type location = {
-  column    : range; [@key "column"]
-  line      : range; [@key "line"]
-  filename  : string; [@key "filename"]
-} [@@deriving protocol ~driver:(module Xmlm)]
+  column    : range;
+  line      : range;
+  filename  : string;
+}
+[@@deriving show]
 
 type module_node = {
-  location : location; [@key "location"]
+  location : location;
   uniquename : string
-} [@@deriving protocol ~driver:(module Xmlm)]
+}
+[@@deriving show]
 
 type entry = {
-  uid : int; [@key "UID"]
-  module_node : module_node; [@key "ModuleNode"]
-} [@@deriving protocol ~driver:(module Xmlm)]
+  uid : int;
+  module_node : module_node;
+}
+[@@deriving show]
 
 type module_node_ref = {
-  uid : int [@key "UID"]
-} [@@deriving protocol ~driver:(module Xmlm)]
+  uid : int
+}
+[@@deriving show]
 
 type context = {
-  entry : entry list [@key "entry"]
-} [@@deriving protocol ~driver:(module Xmlm)]
+  entry : entry list
+}
+[@@deriving show]
 
 type modules = {
-  root_module: string; [@key "RootModule"]
-  context: context; [@key "context"]
-  module_node_ref : module_node_ref list; [@key "ModuleNodeRef"]
-  module_node : module_node list; [@key "ModuleNode"]
-} [@@deriving protocol ~driver:(module Xmlm)]
+  root_module: string;
+  context: context;
+  module_node_ref : module_node_ref list;
+  module_node : module_node list;
+}
+[@@deriving show]
 
+type tree =
+  | E of Xmlm.tag * tree list
+  | D of string
+[@@deriving show]
+
+let xml_to_tree xml =
+  let el tag childs = E (tag, childs)  in
+  let data d = D d in
+  Xmlm.input_doc_tree ~el ~data xml
+  
 let () =
-  let xml = "Test.xml" |> open_in |> In_channel.input_all |> Xmlm.of_string in
-  match modules_of_xmlm xml with
-  | Ok s -> s |> modules_to_xmlm |> Xmlm.to_string |> Printf.printf "t serialized: %s\n";
-  | Error e -> print_endline (Xmlm.error_to_string_hum e)
+  let file = "Test.xml" |> open_in in
+  let xml = `Channel file |>  Xmlm.make_input ~strip:true ~enc:(Some `UTF_8) in
+  let (_, tree) = xml_to_tree xml in
+  print_endline (show_tree tree);
+  close_in file

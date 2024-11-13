@@ -56,6 +56,18 @@ let xml_to_location xml =
     }
   | _ -> Invalid_argument (Printf.sprintf "Cannot translate value %s to location type" (show_tree xml)) |> raise
 
+type module_node_ref = {
+  uid : int
+}
+[@@deriving show]
+
+let xml_to_module_node_ref xml =
+  match xml with
+  | Node (((_, "ModuleNodeRef"), _), children) -> {
+      uid = children |> xml_to_tagged_int "UID";
+    }
+  | _ -> Invalid_argument (Printf.sprintf "Cannot translate value %s to module_node_ref type" (show_tree xml)) |> raise
+
 type module_node = {
   location : location;
   uniquename : string
@@ -70,21 +82,67 @@ let xml_to_module_node xml =
     }
   | _ -> Invalid_argument (Printf.sprintf "Cannot translate value %s to module_node type" (show_tree xml)) |> raise
 
-type module_node_ref = {
-  uid : int
+type op_decl_node = {
+  uniquename : string
 }
 [@@deriving show]
 
-let xml_to_module_node_ref xml =
+let xml_to_op_decl_node (xml : tree) : op_decl_node =
   match xml with
-  | Node (((_, "ModuleNodeRef"), _), children) -> {
-      uid = children |> xml_to_tagged_int "UID";
+  | Node (((_, "OpDeclNode"), _), children) -> ({
+      uniquename = children |> xml_to_tagged_string "uniquename";
+    } : op_decl_node)
+  | _ -> Invalid_argument (Printf.sprintf "Cannot translate value %s to op_decl_node type" (show_tree xml)) |> raise
+
+
+type user_defined_op_kind = {
+  uniquename : string
+}
+[@@deriving show]
+
+let xml_to_user_defined_op_kind xml : user_defined_op_kind =
+  match xml with
+  | Node (((_, "UserDefinedOpKind"), _), children) -> {
+      uniquename = children |> xml_to_tagged_string "uniquename";
     }
-  | _ -> Invalid_argument (Printf.sprintf "Cannot translate value %s to module_node_ref type" (show_tree xml)) |> raise
+  | _ -> Invalid_argument (Printf.sprintf "Cannot translate value %s to user_defined_op_kind type" (show_tree xml)) |> raise
+
+type built_in_kind = {
+  uniquename : string
+}
+[@@deriving show]
+
+let xml_to_built_in_kind xml : built_in_kind =
+  match xml with
+  | Node (((_, "BuiltInKind"), _), children) -> {
+      uniquename = children |> xml_to_tagged_string "uniquename";
+    }
+  | _ -> Invalid_argument (Printf.sprintf "Cannot translate value %s to built_in_kind type" (show_tree xml)) |> raise
+
+type entry_kind =
+  | ModuleNode of module_node
+  | OpDeclNode of op_decl_node
+  | UserDefinedOpKind of user_defined_op_kind
+  | BuiltInKind of built_in_kind
+[@@deriving show]
+
+let xml_to_entry_kind (children : tree list) =
+  let rec find_variant (candidates : tree list) =
+    match candidates with
+    | x :: xs -> (
+      match x with
+      | Node (((_, "ModuleNode"), _), _) -> ModuleNode (xml_to_module_node x)
+      | Node (((_, "OpDeclNode"), _), _) -> OpDeclNode (xml_to_op_decl_node x)
+      | Node (((_, "UserDefinedOpKind"), _), _) -> UserDefinedOpKind (xml_to_user_defined_op_kind x)
+      | Node (((_, "BuiltInKind"), _), _) -> BuiltInKind (xml_to_built_in_kind x)
+      | _ -> find_variant xs
+    )
+    | [] -> Invalid_argument (Printf.sprintf "Unable to find entry_kind variant in children %s" (show_tree_list children)) |> raise
+  in find_variant children
 
 type entry = {
   uid : int;
-  module_node : module_node;
+  kind : entry_kind;
 }
 [@@deriving show]
 
@@ -92,7 +150,7 @@ let xml_to_entry xml =
   match xml with
   | Node (((_, "entry"), _), children) -> {
       uid = children |> xml_to_tagged_int "UID";
-      module_node = children |> find_tag "ModuleNode" |> xml_to_module_node;
+      kind = xml_to_entry_kind children;
     }
   | _ -> Invalid_argument (Printf.sprintf "Cannot translate value %s to entry type" (show_tree xml)) |> raise
 

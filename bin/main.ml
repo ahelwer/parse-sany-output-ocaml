@@ -252,12 +252,27 @@ let xml_to_op_decl_node (xml : tree) : op_decl_node =
     } : op_decl_node)
   | _ -> conversion_failure __FUNCTION__ xml
 
+type leibniz_param = {
+  ref         : formal_param_node_ref;
+  is_leibniz  : bool;
+}
+[@@deriving show]
+
+let xml_to_leibniz_param xml =
+  match xml with
+  | Node (((_, "leibnizparam"), _), children) -> {
+      ref         = children |> find_tag "FormalParamNodeRef" |> xml_to_formal_param_node_ref;
+      is_leibniz  = children |> List.exists (is_tag "leibniz");
+    }
+  | _ -> conversion_failure __FUNCTION__ xml
 
 type user_defined_op_kind = {
   node        : node;
   uniquename  : string;
   arity       : int;
   body        : expression;
+  params      : leibniz_param list;
+  recursive   : bool;
 }
 [@@deriving show]
 
@@ -268,6 +283,8 @@ let xml_to_user_defined_op_kind xml : user_defined_op_kind =
       uniquename  = children |> xml_to_tagged_string  "uniquename";
       arity       = children |> xml_to_tagged_int     "arity";
       body        = children |> find_tag "body" |> child_of |> xml_to_expression;
+      params      = children |> List.find_opt (is_tag "params") |> Option.map children_of |> Option.value ~default:[] |> List.map xml_to_leibniz_param;
+      recursive   = children |> List.exists (is_tag "recursive");
     }
   | _ -> conversion_failure __FUNCTION__ xml
 

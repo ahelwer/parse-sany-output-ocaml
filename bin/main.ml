@@ -445,7 +445,7 @@ let xml_to_inline_proof_node_group children =
 
 type theorem_node = {
   node        : node;
-  definition  : theorem_def_ref;
+  definition  : theorem_def_ref option;
   body        : expr_or_assume_prove;
   proof       : proof_node_group;
 }
@@ -455,7 +455,7 @@ let xml_to_theorem_node xml =
   match xml with
   | Node (((_, "TheoremNode"), _), children) -> {
       node        = children |> xml_to_inline_node;
-      definition  = children |> find_tag "definition" |> child_of |> xml_to_theorem_def_ref;
+      definition  = children |> List.find_opt (is_tag "definition") |> Option.map child_of |> Option.map xml_to_theorem_def_ref;
       body        = children |> find_tag "body" |> children_of |> xml_to_inline_expr_or_assume_prove |> Option.get;
       proof       = children |> xml_to_inline_proof_node_group;
     }
